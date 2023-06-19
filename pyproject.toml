@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "queue-tool"
+version = "0.1.0"
+description = ""
+authors = ["Potato Mexicano <potatomexicano006@yahoo.com>"]
+readme = "README.md"
+packages = [{include = "queue_tool"}]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+flask = {extras = ["async"], version = "^2.3.2"}
+jsonschema = "^4.17.3"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
