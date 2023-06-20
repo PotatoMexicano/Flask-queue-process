@@ -1,138 +1,104 @@
-from flask import Flask, jsonify, request
-from concurrent.futures import ThreadPoolExecutor
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
+import threading
+
 import jsonschema
+from flask import Flask, jsonify, request
 from jsonschema import validate
 
-app = Flask(__name__)
+from queue_tool.model import Job
+from queue_tool.database import create_db
+
+
 pool = ThreadPoolExecutor(max_workers=12)
-processed_itens = {}
+lock = threading.Lock()
 
-INVALID_JOB: dict = {'item': 'INVALID_JOB_REQUEST', 'valor': 0}
+def create_app():
+    
+    app = Flask(__name__)
 
-class Job:
+    @app.cli.command('create-db')
+    def cli_command_create_db() -> None:
+        with lock:  
+            create_db()
+        print('Database created !')
 
-    item: str = None
-    valor: int = None
-    hash: str = None
-    validade: bool = False
-    status: bool = False
+    @app.route('/check/<hash>')
+    def check_hash_status(hash: str):
+        with lock:
+            job = Job.select(hash=hash)
+        
+        if job is None:
+            return jsonify({"message": "Job not found"}), 404
 
-    def __init__(self, data):
+        return jsonify({"messaage": job.status}), 200
 
-        if (validade := self.valida_data(data=data)) is False:
-            return Job(INVALID_JOB)
+    @app.route('/api', methods=['POST'])
+    def process_request():
+        data = request.get_json()
+        hash_queue = []
 
-        self.validade = validade
+        for index, item in enumerate(data):
 
-        self.item = data['item']
-        self.valor = data['valor']
-        self.hash = data['hash']
-        self.status = 'Em processamento'
+            if validate_item(item):
 
-    def __str__(self) -> str:
-        return str(self.item)
+                hash_de_execucao = uuid.uuid4().hex
 
-    def __repr__(self) -> str:
-        return f"Job(item='{self.item}')"
+                item['hash'] = hash_de_execucao
+                job = Job(item)
 
-    def __bool__(self) -> bool:
-        if not isinstance(self, Job):
-            return False
+                with lock:
+                    job.create()
 
-        if not hasattr(self, 'item'):
-            return False
+                hash_queue.append({
+                    "hash": hash_de_execucao,
+                    "item": job.item,
+                    "index": index
+                })
 
-        if not hasattr(self, 'valor'):
-            return False
+                pool.submit(process_item, job)
+                
+            else:
 
-        if not hasattr(self, 'hash'):
-            return False
+                hash_queue.append({
+                    "hash": "INVALID_JOB_REQUEST",
+                    "item": item['item'],
+                    "index": index
+                })
 
-        if not hasattr(self, 'validade'):
-            return False
+        return jsonify({
+            'message': 'Itens recebidos para processamento',
+            'processing_items': hash_queue
+        })
 
-        if not hasattr(self, 'status'):
-            return False
+    def process_item(item: Job):
+        time.sleep(item.valor)
+        
+        with lock:
+            item = item.update()
 
-        return True
+        print(f"Finished: ", item.as_dict(), f'in {item.duration} seconds.')
 
-    def as_dict(self) -> dict:
-        return {
-            'item': self.item,
-            'valor': self.valor,
-            'validade': self.validade,
-            'status': self.status,
+
+    def validate_item(data) -> bool:
+        schema = {
+            "type": "object",
+            "properties": {
+                "item": {"type": "string"},
+                "valor": {"type": "number"}
+            },
+            "required": ["item", "valor"]
         }
 
-    def valida_data(self, data) -> bool:
-        if not isinstance(data, dict):
+        try:
+            validate(data, schema)
+            return True
+        except jsonschema.ValidationError as err:
             return False
 
-        if not 'item' in data:
-            return False
-
-        if not 'valor' in data:
-            return False
-
-        if not 'hash' in data:
-            return False
-
-        return True
-
-def process_item(item: Job):
-    time.sleep(item.valor)
-    item.status = 'finalizado'
-
-    processed_itens[item.hash] = item
-    print(f"Processado: ", item.as_dict())
-
-    return item.__dict__
-
-def validate_data(data) -> bool:
-    schema = {
-        "type": "object",
-        "properties": {
-            "item": {"type": "string"},
-            "valor": {"type": "number"}
-        },
-        "required": ["item", "valor"]
-    }
-
-    try:
-        validate(data, schema)
-        return True
-    except jsonschema.ValidationError as err:
-        return False
-
-@app.route('/check/<hash>')
-def check_hash_status(hash: str):
-    if hash in processed_itens:
-        return jsonify({'message': 'Finalizado'})
-    else:
-        return jsonify({'message': 'Em processamento'})
-
-@app.route('/api', methods=['POST'])
-def process_request():
-    data = request.get_json()
-    hash_queue = []
-    results = []
-
-    for index, item in enumerate(data):
-        if validate_data(item):
-            hash_de_execucao = uuid.uuid4().hex
-            item['hash'] = hash_de_execucao
-            job = Job(item)
-
-            hash_queue.append({"hash": hash_de_execucao, "item": job.item, "index": index})
-            results.append(pool.submit(process_item, job))
-        else:
-            hash_queue.append({"hash": "INVALID_JOB_REQUEST", "item": item['item'], "index": index})
-
-    # processed_items = [result.result() for result in results]
-    return jsonify({'message': 'Itens recebidos para processamento', 'processing_items': hash_queue})
+    return app
 
 if __name__ == '__main__':
-
+    app = create_app()
     app.run(debug=True)
