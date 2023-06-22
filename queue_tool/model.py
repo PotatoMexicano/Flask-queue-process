@@ -2,8 +2,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Type
 
-from sqlalchemy import Column, DateTime, Integer, String, update
-from sqlalchemy.orm import scoped_session
+from sqlalchemy import Column, DateTime, Integer, String
 
 from queue_tool.database import Base
 from queue_tool.database import Session

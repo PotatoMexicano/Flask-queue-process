@@ -2,18 +2,19 @@ from sqlalchemy import URL, create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker, scoped_session
 from sqlalchemy.pool import QueuePool
 
+from decouple import config
 
 class Base(DeclarativeBase):
     pass
 
 __engine = create_engine(
     URL.create(
-        database='queue-tool',
         drivername='postgresql',
-        host='localhost',
-        port=5432,
-        username='postgres',
-        password='root'
+        host=config('DB_HOST'),
+        port=config('DB_PORT'),
+        database=config('DATABASE'),
+        username=config('DB_USER'),
+        password=config('DB_PASSWD'),
     ),
     echo=False,
     poolclass=QueuePool,
