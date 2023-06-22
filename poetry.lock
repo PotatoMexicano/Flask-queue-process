@@ -384,6 +384,18 @@ files = [
 ]
 
 [[package]]
+name = "python-decouple"
+version = "3.8"
+description = "Strict separation of settings from code."
+category = "main"
+optional = false
+python-versions = "*"
+files = [
+    {file = "python-decouple-3.8.tar.gz", hash = "sha256:ba6e2657d4f376ecc46f77a3a615e058d93ba5e465c01bbe57289bfb7cce680f"},
+    {file = "python_decouple-3.8-py3-none-any.whl", hash = "sha256:d0d45340815b25f4de59c974b855bb38d03151d81b037d9e3f463b0c9f8cbd66"},
+]
+
+[[package]]
 name = "sqlalchemy"
 version = "2.0.16"
 description = "Database Abstraction Library"
@@ -511,4 +523,4 @@ testing = ["big-O", "flake8 (<5)", "jaraco.functools", "jaraco.itertools", "more
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "220c1201c8ed6276421c26f49a7005d55cb48f0b113ab399a32209ab3ede14f1"
+content-hash = "903d3315e11b602baa7d4aa4cd63ce1fd1af6b05294daaeec3fb7e4f1de3c27a"
